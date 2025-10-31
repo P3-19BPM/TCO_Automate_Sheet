@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Painel de Diagnóstico TCO</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        .container {
+            max-width: 95%;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1,
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #333;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            cursor: pointer;
+        }
+
+        th:hover {
+            background-color: #555;
+        }
+
+        .filtro-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .filtro label {
+            font-weight: bold;
+        }
+
+        .filtro input,
+        .filtro select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 250px;
+        }
+
+        .action-buttons button {
+            padding: 10px 15px;
+            font-size: 1em;
+            cursor: pointer;
+            border: 1px solid #007bff;
+            background-color: white;
+            color: #007bff;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        .action-buttons button.active,
+        .action-buttons button:hover {
+            background-color: #007bff;
+            color: white;
+        }
+
+        #btn-export {
+            background-color: #28a745;
+            color: white;
+            border-color: #28a745;
+            margin-left: auto;
+        }
+
+        #btn-export:hover {
+            background-color: #218838;
+        }
+
+        #loading,
+        #cache-status {
+            font-size: 1.1em;
+            color: #555;
+            padding: 10px;
+            text-align: center;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .table-wrapper {
+            max-height: 600px;
+            overflow: auto;
+        }
+
+        td {
+            max-width: 450px;
+            white-space: normal;
+        }
+
+        /* --- NOVAS CLASSES PARA A TABELA DE ESTATÍSTICAS --- */
+        .stats-table .meta-ok {
+            background-color: #d4edda;
+            color: #155724;
+            font-weight: bold;
+        }
+
+        .stats-table .meta-fail {
+            background-color: #f8d7da;
+            color: #721c24;
+            font-weight: bold;
+        }
+
+        /* Classes para a tabela de detalhes */
+        tr.row-valid {
+            background-color: #d4edda !important;
+        }
+
+        tr.row-invalid {
+            background-color: #f8d7da !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Painel de Diagnóstico de Registros TCO</h1>
+        <div id="cache-status"></div>
+
+        <h2>Estatísticas por Local</h2>
+        <table id="stats-table" class="stats-table">
+            <thead>
+                <tr>
+                    <th>ENDEREÇO</th>
+                    <th>META</th>
+                    <th>VÁLIDOS</th>
+                    <th>INVÁLIDOS</th>
+                    <th>% CUMPRIMENTO</th>
+                    <th>RESTANTES</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <hr style="margin: 30px 0;">
+
+        <h2>Registros Detalhados</h2>
+        <div class="filtro-container">
+            <div class="action-buttons">
+                <button id="btn-cia-all" class="active">Todas as CIAs</button>
+                <button id="btn-cia-42">42ª CIA PM</button>
+                <button id="btn-cia-47">47ª CIA PM</button>
+            </div>
+            <div class="action-buttons">
+                <button id="btn-valido-all" class="active">Todos</button>
+                <button id="btn-valido-validos">Válidos</button>
+                <button id="btn-valido-invalidos">Inválidos</button>
+            </div>
+            <div class="filtro">
+                <label for="filtro-local">Filtrar por Local:</label>
+                <select id="filtro-local">
+                    <option value="">Todos os Locais</option>
+                    <option value="BARRAGEM TODOS OS SANTOS">BARRAGEM TODOS OS SANTOS</option>
+                    <option value="CEAM - BARRAGEM TODOS OS SANTOS">CEAM - BARRAGEM TODOS OS SANTOS</option>
+                    <option value="AGÊNCIA DE ATENDIMENTO">AGÊNCIA DE ATENDIMENTO</option>
+                    <option value="ALMOXARIFADO SÃO JOSÉ">ALMOXARIFADO SÃO JOSÉ</option>
+                </select>
+            </div>
+            <div class="filtro">
+                <label for="filtro-motivo">Filtrar por Motivo:</label>
+                <input type="text" id="filtro-motivo" placeholder="Digite para filtrar...">
+            </div>
+            <button id="btn-export">Exportar CSV</button>
+        </div>
+
+        <div id="loading">Carregando dados...</div>
+
+        <div class="table-wrapper">
+            <table id="data-table">
+                <thead></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const loadingDiv = document.getElementById('loading');
+            const cacheStatusDiv = document.getElementById('cache-status');
+            const dataTableBody = document.querySelector('#data-table tbody');
+            const dataTableHeader = document.querySelector('#data-table thead');
+            const statsTableBody = document.querySelector('#stats-table tbody');
+            const filtroLocalSelect = document.getElementById('filtro-local');
+            const filtroMotivoInput = document.getElementById('filtro-motivo');
+            const ciaButtons = document.querySelectorAll('#btn-cia-all, #btn-cia-42, #btn-cia-47');
+            const validoButtons = document.querySelectorAll('#btn-valido-all, #btn-valido-validos, #btn-valido-invalidos');
+            const exportButton = document.getElementById('btn-export');
+
+            let sortState = {};
+            let activeCia = '';
+            let activeValido = '';
+            let currentVisibleData = [];
+
+            async function fetchData(params = {}) {
+                loadingDiv.style.display = 'block';
+                const urlParams = new URLSearchParams(params);
+                const url = `/api/dados-diagnostico?${urlParams.toString()}`;
+
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        const errorInfo = await response.json();
+                        throw new Error(errorInfo.error || 'Falha na rede ou no servidor.');
+                    }
+
+                    const result = await response.json();
+                    loadingDiv.style.display = 'none';
+
+                    const cacheInfo = result.cache_info;
+                    const updateDate = new Date(cacheInfo.last_updated).toLocaleString('pt-BR');
+                    cacheStatusDiv.textContent = `Dados exibidos da fonte: ${cacheInfo.source}. Última atualização: ${updateDate}.`;
+
+                    renderStatsTable(result.stats);
+                    renderDetailsTable(result.details);
+                    currentVisibleData = result.details;
+
+                } catch (error) {
+                    loadingDiv.textContent = `Erro ao carregar dados: ${error.message}`;
+                    loadingDiv.style.color = 'red';
+                }
+            }
+
+            function renderStatsTable(statsData) {
+                statsTableBody.innerHTML = statsData.map(row => {
+                    // --- LÓGICA DE COR DA META ---
+                    const metaAtingida = row['VÁLIDOS'] >= row['META'];
+                    const rowClass = metaAtingida ? 'meta-ok' : 'meta-fail';
+
+                    return `
+                <tr class="${rowClass}">
+                    <td>${row['ENDEREÇO']}</td>
+                    <td>${row['META']}</td>
+                    <td>${row['VÁLIDOS']}</td>
+                    <td>${row['INVÁLIDOS']}</td>
+                    <td>${row['% CUMPRIMENTO']}%</td>
+                    <td>${row['RESTANTES']}</td>
+                </tr>
+            `;
+                }).join('');
+            }
+
+            function renderDetailsTable(detailsData) {
+                if (!detailsData || detailsData.length === 0) {
+                    dataTableHeader.innerHTML = '';
+                    dataTableBody.innerHTML = '<tr><td colspan="100%">Nenhum registro corresponde aos critérios.</td></tr>';
+                    return;
+                }
+
+                const headers = Object.keys(detailsData[0]).filter(h => h !== 'REGISTRO VÁLIDO');
+                dataTableHeader.innerHTML = `<tr>${headers.map(h => `<th data-column="${h}">${h}</th>`).join('')}</tr>`;
+
+                dataTableBody.innerHTML = detailsData.map(row => {
+                    const isValid = row['REGISTRO VÁLIDO'];
+                    const rowClass = isValid ? 'row-valid' : 'row-invalid';
+                    return `<tr class="${rowClass}">
+                ${headers.map(h => `<td>${row[h] !== null ? row[h] : ''}</td>`).join('')}
+            </tr>`;
+                }).join('');
+
+                document.querySelectorAll('#data-table thead th').forEach(th => {
+                    th.addEventListener('click', handleSort);
+                });
+            }
+
+            function handleSort(event) {
+                const column = event.target.dataset.column;
+                const currentDirection = sortState[column] || 'asc';
+                const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+                sortState = { [column]: newDirection };
+                fetchCurrentFilters({ sort_by: column, sort_order: newDirection });
+            }
+
+            function fetchCurrentFilters(extraParams = {}) {
+                const params = {
+                    filtro_cia: activeCia,
+                    filtro_valido: activeValido,
+                    filtro_local: filtroLocalSelect.value,
+                    filtro_motivo: filtroMotivoInput.value,
+                    ...extraParams
+                };
+                fetchData(params);
+            }
+
+            ciaButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    ciaButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    if (button.id === 'btn-cia-42') activeCia = '42';
+                    else if (button.id === 'btn-cia-47') activeCia = '47';
+                    else activeCia = '';
+                    fetchCurrentFilters();
+                });
+            });
+
+            validoButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    validoButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    if (button.id === 'btn-valido-validos') activeValido = 'validos';
+                    else if (button.id === 'btn-valido-invalidos') activeValido = 'invalidos';
+                    else activeValido = '';
+                    fetchCurrentFilters();
+                });
+            });
+
+            filtroLocalSelect.addEventListener('change', () => fetchCurrentFilters());
+            filtroMotivoInput.addEventListener('keyup', () => fetchCurrentFilters());
+
+            function exportToCsv(data) {
+                if (data.length === 0) {
+                    alert("Não há dados para exportar.");
+                    return;
+                }
+                const headers = Object.keys(data[0]);
+                const csvRows = [headers.join(',')];
+
+                for (const row of data) {
+                    const values = headers.map(header => {
+                        let cell = row[header] === null ? '' : String(row[header]);
+                        cell = cell.replace(/"/g, '""');
+                        if (cell.includes(',')) {
+                            cell = `"${cell}"`;
+                        }
+                        return cell;
+                    });
+                    csvRows.push(values.join(','));
+                }
+
+                const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'diagnostico_tco.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            exportButton.addEventListener('click', () => {
+                exportToCsv(currentVisibleData);
+            });
+
+            // Carga inicial
+            fetchData();
+        });
+    </script>
+
+</body>
+
+</html>

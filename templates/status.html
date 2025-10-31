@@ -1,0 +1,193 @@
+<!-- E:\TCO\TCO_Automate_Sheet\templates\status.html -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atualização da Planilha TCO</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 90%;
+        }
+        h1 {
+            color: #1c1e21;
+            margin-bottom: 20px;
+        }
+        #status-message {
+            font-size: 1.2em;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #e7f3ff;
+            color: #0056b3;
+            min-height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        #status-message.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        #status-message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        #start-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        #start-button:hover {
+            background-color: #0056b3;
+        }
+        #start-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border-left-color: #007bff;
+            animation: spin 1s ease infinite;
+            display: none; /* Oculto por padrão */
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Atualização da Planilha TCO</h1>
+    <p>Clique no botão para iniciar a busca de dados e a atualização da planilha.</p>
+    
+    <button id="start-button">
+        <div class="spinner" id="spinner"></div>
+        <span>Iniciar Atualização</span>
+    </button>
+
+    <div id="status-message">Aguardando início...</div>
+</div>
+
+<script>
+    const statusMessage = document.getElementById('status-message');
+    const startButton = document.getElementById('start-button');
+    const spinner = document.getElementById('spinner');
+    const buttonText = startButton.querySelector('span');
+
+    let pollingInterval;
+
+    // Função para buscar o status no servidor
+    async function fetchStatus() {
+        try {
+            const response = await fetch('/status');
+            const data = await response.json();
+            
+            // Atualiza a mensagem na tela
+            statusMessage.textContent = data.status;
+
+            // Remove classes de cor antigas
+            statusMessage.classList.remove('success', 'error');
+
+            // Adiciona classes de cor com base no status
+            if (data.status.includes('SUCESSO')) {
+                statusMessage.classList.add('success');
+                stopPolling();
+                enableButton('Iniciar Novamente');
+            } else if (data.status.includes('ERRO') || data.status.includes('AVISO')) {
+                statusMessage.classList.add('error');
+                stopPolling();
+                enableButton('Tentar Novamente');
+            } else if (data.status.includes('Pronto para iniciar')) {
+                stopPolling();
+                enableButton('Iniciar Atualização');
+            }
+
+        } catch (error) {
+            console.error('Erro ao buscar status:', error);
+            statusMessage.textContent = 'Erro de conexão com o servidor.';
+            statusMessage.classList.add('error');
+            stopPolling();
+            enableButton('Tentar Novamente');
+        }
+    }
+
+    // Funções para controlar o botão e o spinner
+    function disableButton(text) {
+        startButton.disabled = true;
+        spinner.style.display = 'inline-block';
+        buttonText.textContent = text;
+    }
+
+    function enableButton(text) {
+        startButton.disabled = false;
+        spinner.style.display = 'none';
+        buttonText.textContent = text;
+    }
+
+    // Funções para controlar o polling
+    function startPolling() {
+        fetchStatus(); // Busca imediata
+        pollingInterval = setInterval(fetchStatus, 3000); // Busca a cada 3 segundos
+    }
+
+    function stopPolling() {
+        clearInterval(pollingInterval);
+    }
+
+    // Evento de clique no botão
+    startButton.addEventListener('click', async () => {
+        disableButton('Iniciando...');
+        
+        try {
+            const response = await fetch('/iniciar-atualizacao', { method: 'POST' });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Falha ao iniciar o processo.');
+            }
+            // Se o início foi bem-sucedido, começa a verificar o status
+            startPolling();
+        } catch (error) {
+            console.error('Erro ao iniciar:', error);
+            statusMessage.textContent = error.message;
+            statusMessage.classList.add('error');
+            enableButton('Tentar Novamente');
+        }
+    });
+
+    // Ao carregar a página, verifica o status inicial para saber se um processo já está rodando
+    window.addEventListener('load', () => {
+        fetchStatus();
+    });
+</script>
+
+</body>
+</html>

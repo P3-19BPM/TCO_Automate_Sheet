@@ -2,7 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+credentials.json
 # C extensions
 *.so
 
@@ -132,6 +132,7 @@ celerybeat.pid
 .venv
 env/
 venv/
+venvTCO/
 ENV/
 env.bak/
 venv.bak/
@@ -179,3 +180,32 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+
+# Arquivos de Ambiente Virtual Python
+/venvTCO/
+/venv/
+__pycache__/
+*.pyc
+
+# Arquivos de Segredos e Configuração Local
+# NUNCA comite suas credenciais!
+/config/credenciais-robo.json
+.env
+
+# Arquivos de Cache Gerados Automaticamente
+# O cache é específico da máquina e do momento, não deve ser versionado.
+/cache/
+
+# Arquivos de instalação e binários
+# Drivers e instaladores não são código-fonte.
+*.deb
+*.pem
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
+
+# Arquivos de IDE
+.vscode/
+.idea/
