@@ -103,10 +103,10 @@ Isso iniciará o `api_server.py` em segundo plano. O servidor estará acessível
 ### Acessando as Ferramentas
 
 -   **Painel de Diagnóstico:**
-    Abra o navegador e acesse: `http://10.14.56.62:8088/diagnostico`
+    Abra o navegador e acesse: `http://10.14.56.162:8088/diagnostico`
 
 -   **Atualizador de Planilha:**
-    Abra o navegador e acesse: `http://10.14.56.62:8088/`
+    Abra o navegador e acesse: `http://10.14.56.162:8088/`
 
 ### Parando o Servidor
 

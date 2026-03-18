@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Painel de Diagnóstico TCO - COPASA</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        .container {
+            max-width: 98%;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1,
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 0.85em;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #333;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            cursor: pointer;
+        }
+
+        th:hover {
+            background-color: #555;
+        }
+
+        .filtro-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            margin: 20px 0;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .filtro label {
+            font-weight: bold;
+        }
+
+        .filtro input,
+        .filtro select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .action-buttons button {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: 1px solid #007bff;
+            background-color: white;
+            color: #007bff;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        .action-buttons button.active {
+            background-color: #007bff;
+            color: white;
+        }
+
+        /* Estilos dos Botões de Auditoria */
+        .btn-audit-v {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 4px;
+        }
+
+        .btn-audit-i {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-audit-v:hover {
+            background: #218838;
+        }
+
+        .btn-audit-i:hover {
+            background: #c82333;
+        }
+
+        tr.row-valid {
+            background-color: #d4edda !important;
+        }
+
+        tr.row-invalid {
+            background-color: #f8d7da !important;
+        }
+
+        .meta-ok {
+            background-color: #d4edda;
+            font-weight: bold;
+        }
+
+        .meta-fail {
+            background-color: #f8d7da;
+            font-weight: bold;
+        }
+
+        #loading {
+            text-align: center;
+            padding: 10px;
+            font-weight: bold;
+            background: #e9ecef;
+            display: none;
+        }
+
+        .table-wrapper {
+            max-height: 700px;
+            overflow: auto;
+            border: 1px solid #ddd;
+        }
+
+        td {
+            max-width: 450px;
+            white-space: normal;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Painel de Diagnóstico - VISITAS COPASA</h1>
+        <div id="cache-status"
+            style="font-size: 1.1em; color: #555; padding: 10px; text-align: center; background-color: #e9ecef; border-radius: 5px;">
+        </div>
+
+        <h2>Estatísticas por Local</h2>
+        <table id="stats-table">
+            <thead>
+                <tr>
+                    <th>ENDEREÇO</th>
+                    <th>META</th>
+                    <th>VÁLIDOS</th>
+                    <th>INVÁLIDOS</th>
+                    <th>% CUMPRIMENTO</th>
+                    <th>RESTANTES</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <hr style="margin: 30px 0;">
+
+        <h2>Registros Detalhados</h2>
+        <div class="filtro-container">
+            <div class="action-buttons">
+                <button id="btn-cia-all" class="active">Todas as CIAs</button>
+                <button id="btn-cia-42">42ª CIA PM</button>
+                <button id="btn-cia-47">47ª CIA PM</button>
+            </div>
+            <div class="action-buttons">
+                <button id="btn-valido-all" class="active">Todos</button>
+                <button id="btn-valido-validos">Válidos</button>
+                <button id="btn-valido-invalidos">Inválidos</button>
+            </div>
+            <div class="filtro">
+                <select id="filtro-local">
+                    <option value="">Todos os Locais</option>
+                    <option value="BARRAGEM TODOS OS SANTOS">BARRAGEM TODOS OS SANTOS</option>
+                    <option value="CEAM - BARRAGEM TODOS OS SANTOS">CEAM - BARRAGEM TODOS OS SANTOS</option>
+                    <option value="AGÊNCIA DE ATENDIMENTO">AGÊNCIA DE ATENDIMENTO</option>
+                    <option value="ALMOXARIFADO SÃO JOSÉ">ALMOXARIFADO SÃO JOSÉ</option>
+                </select>
+            </div>
+            <div class="filtro">
+                <input type="text" id="filtro-motivo" placeholder="Filtrar por motivo...">
+            </div>
+            <div class="filtro">
+                <select id="filtro-mes">
+                    <option value="10-2025">Outubro 2025</option>
+                    <option value="11-2025">Novembro 2025</option>
+                    <option value="12-2025">Dezembro 2025</option>
+                    <option value="01-2026">Janeiro 2026</option>
+                </select>
+            </div>
+            <button id="btn-export"
+                style="background-color: #28a745; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;">Exportar
+                CSV</button>
+            <button id="btn-xlsx"
+                style="background-color: #28a745; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer;">ANUNCIO
+                15ª RPM</button>
+
+            <a href="https://docs.google.com/spreadsheets/d/17MWvrFMT5RiQPBmG042uCc7lO-Yu-j3n-8U_4YGXKCM/edit?gid=48021830#gid=48021830"
+                target="_blank"
+                style="background-color: #4285F4; color: white; text-decoration: none; padding: 10px; border-radius: 5px; font-size: 0.9em; font-weight: bold; display: inline-block;">
+                PLANILHA GOOGLE (ANÚNCIO)
+            </a>
+        </div>
+
+        <div id="loading">Carregando dados...</div>
+
+        <div class="table-wrapper">
+            <table id="data-table">
+                <thead></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const loadingDiv = document.getElementById('loading');
+            const cacheStatusDiv = document.getElementById('cache-status');
+            const dataTableBody = document.querySelector('#data-table tbody');
+            const dataTableHeader = document.querySelector('#data-table thead');
+            const statsTableBody = document.querySelector('#stats-table tbody');
+
+            const filtroLocalSelect = document.getElementById('filtro-local');
+            const filtroMesSelect = document.getElementById('filtro-mes');
+            const filtroMotivoInput = document.getElementById('filtro-motivo');
+
+            let sortState = {};
+            let activeCia = '';
+            let activeValido = '';
+            let currentVisibleData = [];
+
+            function mesAtual() {
+                const d = new Date();
+                return `${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+            }
+
+            // Inicialização do mês - garante que novas opções sejam adicionadas mês a mês
+            (function () {
+                const atual = mesAtual();
+                const monthNames = {
+                    '01': 'Janeiro', '02': 'Fevereiro', '03': 'Março', '04': 'Abril',
+                    '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
+                    '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
+                };
+
+                function dateNum(v) {
+                    const [m, y] = v.split('-');
+                    return parseInt(y) * 100 + parseInt(m);
+                }
+                function nextMonth(v) {
+                    let [m, y] = v.split('-').map(Number);
+                    m++;
+                    if (m > 12) { m = 1; y++; }
+                    return `${String(m).padStart(2, '0')}-${y}`;
+                }
+
+                const existing = Array.from(filtroMesSelect.options).map(o => o.value);
+                if (existing.length) {
+                    existing.sort((a, b) => dateNum(a) - dateNum(b));
+                    let last = existing[existing.length - 1];
+                    while (dateNum(last) < dateNum(atual)) {
+                        last = nextMonth(last);
+                        if (!existing.includes(last)) {
+                            const o = document.createElement('option');
+                            o.value = last;
+                            if (last === atual) {
+                                o.textContent = `Mês Atual (${last})`;
+                            } else {
+                                const [mm, yy] = last.split('-');
+                                o.textContent = `${monthNames[mm]} ${yy}`;
+                            }
+                            filtroMesSelect.appendChild(o);
+                            existing.push(last);
+                        }
+                    }
+                }
+
+                // se não havia nenhuma opção ou atual ainda não foi adicionada, garante inclusão
+                if (!existing.includes(atual)) {
+                    const o = document.createElement('option');
+                    o.value = atual;
+                    o.textContent = `Mês Atual (${atual})`;
+                    filtroMesSelect.appendChild(o);
+                }
+
+                filtroMesSelect.value = atual;
+            })();
+
+            async function fetchData(params = {}) {
+                loadingDiv.style.display = 'block';
+                const urlParams = new URLSearchParams({
+                    filtro_cia: activeCia,
+                    filtro_valido: activeValido,
+                    filtro_local: filtroLocalSelect.value,
+                    filtro_motivo: filtroMotivoInput.value,
+                    filtro_mes: filtroMesSelect.value,
+                    ...params
+                });
+
+                try {
+                    const response = await fetch(`/api/dados-diagnostico?${urlParams}`);
+                    const result = await response.json();
+
+                    cacheStatusDiv.textContent = `Fonte: ${result.cache_info.source}. Atualizado: ${new Date(result.cache_info.last_updated).toLocaleString('pt-BR')}`;
+
+                    renderStatsTable(result.stats);
+                    renderDetailsTable(result.details);
+                    currentVisibleData = result.details;
+                } catch (error) {
+                    console.error("Erro:", error);
+                } finally {
+                    loadingDiv.style.display = 'none';
+                }
+            }
+
+            function renderStatsTable(statsData) {
+                statsTableBody.innerHTML = statsData.map(row => `
+                    <tr class="${row['VÁLIDOS'] >= row['META'] ? 'meta-ok' : 'meta-fail'}">
+                        <td>${row['ENDEREÇO']}</td>
+                        <td>${row['META']}</td>
+                        <td>${row['VÁLIDOS']}</td>
+                        <td>${row['INVÁLIDOS']}</td>
+                        <td>${row['% CUMPRIMENTO']}%</td>
+                        <td>${row['RESTANTES']}</td>
+                    </tr>
+                `).join('');
+            }
+
+            function renderDetailsTable(detailsData) {
+                if (!detailsData.length) {
+                    dataTableBody.innerHTML = '<tr><td colspan="100%">Nenhum registro encontrado.</td></tr>';
+                    return;
+                }
+
+                const headers = Object.keys(detailsData[0]).filter(h => h !== 'REGISTRO VÁLIDO');
+                dataTableHeader.innerHTML = `<tr>${headers.map(h => `<th data-column="${h}">${h}</th>`).join('')}<th>AUDITORIA</th></tr>`;
+
+                dataTableBody.innerHTML = detailsData.map(row => {
+                    const bos = row['BOS'];
+                    const rowClass = row['REGISTRO VÁLIDO'] ? 'row-valid' : 'row-invalid';
+                    return `
+                        <tr class="${rowClass}">
+                            ${headers.map(h => `<td>${row[h] !== null ? row[h] : ''}</td>`).join('')}
+                            <td style="white-space:nowrap">
+                                <button class="btn-audit-v" onclick="auditar('${bos}', 'validado_manual')">V</button>
+                                <button class="btn-audit-i" onclick="auditar('${bos}', 'invalidado_manual')">I</button>
+                            </td>
+                        </tr>`;
+                }).join('');
+
+                document.querySelectorAll('#data-table thead th').forEach(th => th.onclick = handleSort);
+            }
+
+            window.auditar = async function (bos, status) {
+                if (!confirm(`Deseja alterar o status do REDS ${bos}?`)) return;
+                await fetch('/api/copasa/auditar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bos, status })
+                });
+                fetchData();
+            };
+
+            function handleSort(e) {
+                const col = e.target.dataset.column;
+                if (!col) return;
+                sortState[col] = sortState[col] === 'asc' ? 'desc' : 'asc';
+                fetchData({ sort_by: col, sort_order: sortState[col] });
+            }
+
+            // Eventos de Filtro
+            filtroLocalSelect.onchange = () => fetchData();
+            filtroMesSelect.onchange = () => fetchData();
+            filtroMotivoInput.onkeyup = () => fetchData();
+
+            document.getElementById('btn-cia-all').onclick = function () { activeCia = ''; updateBtn(this, 'btn-cia'); fetchData(); };
+            document.getElementById('btn-cia-42').onclick = function () { activeCia = '42'; updateBtn(this, 'btn-cia'); fetchData(); };
+            document.getElementById('btn-cia-47').onclick = function () { activeCia = '47'; updateBtn(this, 'btn-cia'); fetchData(); };
+
+            document.getElementById('btn-valido-all').onclick = function () { activeValido = ''; updateBtn(this, 'btn-valido'); fetchData(); };
+            document.getElementById('btn-valido-validos').onclick = function () { activeValido = 'validos'; updateBtn(this, 'btn-valido'); fetchData(); };
+            document.getElementById('btn-valido-invalidos').onclick = function () { activeValido = 'invalidos'; updateBtn(this, 'btn-valido'); fetchData(); };
+
+            function updateBtn(el, group) {
+                document.querySelectorAll(`[id^="${group}"]`).forEach(b => b.classList.remove('active'));
+                el.classList.add('active');
+            }
+
+            document.getElementById('btn-export').onclick = () => {
+                const headers = Object.keys(currentVisibleData[0]);
+                const csv = [headers.join(','), ...currentVisibleData.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))].join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'diagnostico_tco.csv'; a.click();
+            };
+
+            document.getElementById('btn-xlsx').onclick = () => {
+                window.location.href = `/api/copasa/export-xlsx?filtro_mes=${filtroMesSelect.value}`;
+            };
+
+            fetchData();
+        });
+    </script>
+</body>
+
+</html>

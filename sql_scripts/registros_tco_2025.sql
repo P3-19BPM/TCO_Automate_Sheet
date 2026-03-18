@@ -7,6 +7,7 @@ SELECT
                 CASE 
                         WHEN OCO.ind_tco = 'S' THEN 'TCO'
                         WHEN OCO.natureza_codigo = 'I99000' THEN 'USO E CONSUMO'
+                        WHEN OCO.natureza_codigo = 'I04500' THEN 'USO E CONSUMO NOVO'
                 END ind_tco,
                 OCO.relator_matricula ,
                 OCO.relator_nome,
@@ -21,5 +22,5 @@ SELECT
         AND OCO.codigo_municipio in (316860, 315240, 313700, 310470, 314850, 314535, 314620)
         --AND OCO.digitador_id_orgao IN (0) -- Registro feito por órgãos específicos(PM , PC)
                 AND OCO.unidade_responsavel_registro_nome like '%19 BPM%'
-                AND (OCO.ind_tco = 'S' OR OCO.natureza_codigo = 'I99000')
-                AND OCO.data_hora_fato BETWEEN '2025-01-01 00:00:00.000' AND '2025-12-31 00:00:00.000' -- Período de análise
+                AND (OCO.ind_tco = 'S' OR OCO.natureza_codigo IN ('I99000', 'I04500'))
+                AND OCO.data_hora_fato BETWEEN '2026-01-01 00:00:00.000' AND '2026-12-31 00:00:00.000' -- Período de análise
