@@ -2,9 +2,9 @@ def get_sql_cemig():
     return """
 -- NAME: CONSULTA_CEMIG_REGEX
 SELECT
-    'CEMIG' AS LOCAL,
+    'CEMIG' AS FONTE,
     OCO.numero_ocorrencia,
-    WEEK(OCO.data_hora_fato) AS SEMANA,
+    WEEKOFYEAR(OCO.data_hora_fato) AS SEMANA,
     OCO.data_hora_fato,
     OCO.natureza_codigo,
     OCO.logradouro_codigo,
@@ -20,7 +20,7 @@ SELECT
 FROM db_bisp_reds_reporting.tb_ocorrencia AS OCO
 WHERE 1=1
     AND OCO.natureza_codigo = 'A21000'
-    AND YEAR(OCO.data_hora_fato) >=2025
+    AND YEAR(OCO.data_hora_fato) = :ANO
     -- IDENTIFICAÇÃO POR TEXTO (CEMIG)
     AND (
         LOWER(OCO.historico_ocorrencia) RLIKE 'cemig'
