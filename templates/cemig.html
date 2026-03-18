@@ -3,182 +3,229 @@
 <head>
     <meta charset="UTF-8">
     <title>CEMIG - Monitoramento Operacional</title>
-    <!-- ECharts CDN -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 20px; background-color: #121212; color: #e0e0e0; }
-        .container { max-width: 98%; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); }
+        .container { max-width: 98%; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         h1, h2 { color: #f39c12; border-bottom: 2px solid #f39c12; padding-bottom: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.85em; }
         th, td { border: 1px solid #333; padding: 8px; text-align: left; }
         th { background-color: #333; color: #f39c12; position: sticky; top: 0; z-index: 1; }
         th:hover { background-color: #444; }
         .filtro-container { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin: 20px 0; background: #2a2a2a; padding: 15px; border-radius: 5px; }
-        .filtro label { font-weight: bold; color: #ccc; }
         .filtro select, .filtro input { padding: 8px; border: 1px solid #555; border-radius: 4px; background: #222; color: #e0e0e0; }
         .meta-ok { background-color: #1e4620 !important; font-weight: bold; }
         .meta-fail { background-color: #5c1e1e !important; font-weight: bold; }
-        #loading { text-align: center; padding: 10px; font-weight: bold; background: #333; display: none; margin-bottom: 10px; }
-        .table-wrapper { max-height: 400px; overflow: auto; border: 1px solid #444; margin-bottom: 30px;}
+        .table-wrapper { max-height: 400px; overflow: auto; border: 1px solid #444; margin-bottom: 30px; }
         tr:nth-child(even) { background-color: #252525; }
         td { max-width: 450px; white-space: normal; }
-        #chart-container { width: 100%; height: 400px; margin-top: 20px; }
+        #chart-container { width: 100%; height: 380px; margin-top: 20px; }
+        #cache-status { font-size: 1em; color: #aaa; padding: 10px; text-align: center; background-color: #2a2a2a; border-radius: 5px; margin-bottom: 10px; }
+
+        /* ====== LOG AO VIVO ====== */
+        #log-panel {
+            background: #0d0d0d;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.82em;
+            max-height: 180px;
+            overflow-y: auto;
+            display: none;
+        }
+        #log-panel .log-line { color: #7ec8a0; margin: 2px 0; }
+        #log-panel .log-erro { color: #e74c3c; margin: 2px 0; }
+        #log-panel .log-header { color: #f39c12; font-weight: bold; margin-bottom: 6px; }
+        #log-spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid #f39c12; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 8px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>CEMIG - Monitoramento Operacional</h1>
-        <div id="cache-status" style="font-size: 1.1em; color: #aaa; padding: 10px; text-align: center; background-color: #2a2a2a; border-radius: 5px;"></div>
-        
-        <div class="filtro-container">
-            <div class="filtro">
-                <input type="number" id="filtro-semana" placeholder="Semanas (Ex: 15)" style="max-width: 150px;">
-            </div>
-            <div class="filtro">
-                <input type="text" id="filtro-municipio" placeholder="Município (Ex: BELO HORIZONTE)">
-            </div>
-            <button id="btn-buscar" style="background-color: #f39c12; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;">
-                Buscar Dados
-            </button>
-            <button id="btn-forcar-update" style="background-color: #c0392b; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-left: 5px;">
-                ↻ Forçar Atualização (BISP)
-            </button>
-        </div>
+<div class="container">
+    <h1>CEMIG - Monitoramento Operacional</h1>
+    <div id="cache-status">Carregando...</div>
 
-        <div id="loading">Carregando dados da CEMIG...</div>
-
-        <h2>Estatísticas por Semana e Locais</h2>
-        <div class="table-wrapper" style="max-height: 300px;">
-            <table id="stats-table">
-                <thead>
-                    <tr>
-                        <th>SEMANA</th>
-                        <th>ENDEREÇO</th>
-                        <th>VÁLIDOS</th>
-                        <th>META</th>
-                        <th>% CUMPRIMENTO</th>
-                        <th>RESTANTES</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+    <div class="filtro-container">
+        <div class="filtro">
+            <input type="number" id="filtro-semana" placeholder="Semana (Ex: 15)" style="max-width: 140px;">
         </div>
-        
-        <div id="chart-container"></div>
-        
-        <h2>Registros Detalhados</h2>
-        <div class="table-wrapper">
-            <table id="data-table">
-                <thead></thead>
-                <tbody></tbody>
-            </table>
+        <div class="filtro">
+            <input type="text" id="filtro-municipio" placeholder="Município (Ex: BELO HORIZONTE)">
         </div>
+        <button id="btn-buscar" onclick="fetchData(false)"
+            style="background:#f39c12;color:#121212;border:none;padding:10px 18px;border-radius:5px;cursor:pointer;font-weight:bold;">
+            Buscar Dados
+        </button>
+        <button id="btn-forcar" onclick="fetchData(true)"
+            style="background:#c0392b;color:white;border:none;padding:10px 18px;border-radius:5px;cursor:pointer;font-weight:bold;">
+            ↻ Forçar Atualização (BISP)
+        </button>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const chartDom = document.getElementById('chart-container');
-            const myChart = echarts.init(chartDom, 'dark');
-            
-            const btnBuscar = document.getElementById('btn-buscar');
-            const btnForcar = document.getElementById('btn-forcar-update');
-            const filtroSemana = document.getElementById('filtro-semana');
-            const filtroMunicipio = document.getElementById('filtro-municipio');
-            const loading = document.getElementById('loading');
-            
-            async function fetchData(forceRefresh = false) {
-                loading.style.display = 'block';
-                if (forceRefresh) {
-                    loading.innerText = 'Consultando banco BISP ao vivo... Isso pode demorar.';
-                } else {
-                    loading.innerText = 'Carregando dados da CEMIG...';
+
+    <!-- LOG AO VIVO -->
+    <div id="log-panel">
+        <div class="log-header"><span id="log-spinner"></span> Log de execução ao vivo</div>
+        <div id="log-lines"></div>
+    </div>
+
+    <h2>Estatísticas por Semana e Localidade</h2>
+    <div class="table-wrapper" style="max-height:260px;">
+        <table id="stats-table">
+            <thead>
+                <tr>
+                    <th>SEMANA</th><th>ENDEREÇO</th><th>VÁLIDOS</th>
+                    <th>META</th><th>% CUMPRIMENTO</th><th>RESTANTES</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="chart-container"></div>
+
+    <h2>Registros Detalhados</h2>
+    <div class="table-wrapper">
+        <table id="data-table"><thead></thead><tbody></tbody></table>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const chartDom = document.getElementById('chart-container');
+    const myChart = echarts.init(chartDom, 'dark');
+    let logPolling = null;
+
+    // ========================
+    // LOG AO VIVO
+    // ========================
+    function startLogPolling() {
+        const panel = document.getElementById('log-panel');
+        const linesDiv = document.getElementById('log-lines');
+        panel.style.display = 'block';
+        linesDiv.innerHTML = '';
+        let seen = 0;
+
+        logPolling = setInterval(async () => {
+            try {
+                const r = await fetch('/api/cemig/status');
+                const s = await r.json();
+                const linhas = s.passos || [];
+                // Só adiciona as novas
+                for (let i = seen; i < linhas.length; i++) {
+                    const d = document.createElement('div');
+                    const isErro = linhas[i].includes('[ERRO]');
+                    d.className = isErro ? 'log-erro' : 'log-line';
+                    d.textContent = linhas[i];
+                    linesDiv.appendChild(d);
+                    panel.scrollTop = panel.scrollHeight;
                 }
-                const s = filtroSemana.value.trim();
-                const m = filtroMunicipio.value.trim().toUpperCase();
-                
-                const url = new URL('/api/cemig/dados', window.location.origin);
-                if (s) url.searchParams.append('filtro_semana', s);
-                if (m) url.searchParams.append('filtro_municipio', m);
-                if (forceRefresh) url.searchParams.append('force_refresh', 'true');
-                
-                try {
-                    const resp = await fetch(url);
-                    const json = await resp.json();
-                    
-                    document.getElementById('cache-status').innerText = `Fonte: ${json.cache_info.source} | Atualizado: ${json.cache_info.last_updated}`;
-                    
-                    renderStats(json.stats);
-                    renderDetails(json.details);
-                    renderChart(json.details);
-                } catch(e) {
-                    console.error('Erro CEMIG:', e);
-                } finally {
-                    loading.style.display = 'none';
-                }
+                seen = linhas.length;
+                if (!s.running) stopLogPolling();
+            } catch(e) { stopLogPolling(); }
+        }, 800);
+    }
+
+    function stopLogPolling() {
+        if (logPolling) { clearInterval(logPolling); logPolling = null; }
+        document.getElementById('log-spinner').style.display = 'none';
+    }
+
+    // ========================
+    // FETCH DADOS
+    // ========================
+    async function fetchData(forceRefresh = false) {
+        document.getElementById('log-spinner').style.display = 'inline-block';
+        document.getElementById('cache-status').textContent = forceRefresh
+            ? '⏳ Consultando BISP ao vivo... Pode demorar alguns segundos.'
+            : '⏳ Verificando cache...';
+
+        startLogPolling();
+
+        const s = document.getElementById('filtro-semana').value.trim();
+        const m = document.getElementById('filtro-municipio').value.trim().toUpperCase();
+        const url = new URL('/api/cemig/dados', window.location.origin);
+        if (s) url.searchParams.append('filtro_semana', s);
+        if (m) url.searchParams.append('filtro_municipio', m);
+        if (forceRefresh) url.searchParams.append('force_refresh', 'true');
+
+        try {
+            const resp = await fetch(url);
+            const json = await resp.json();
+
+            if (json.error) {
+                document.getElementById('cache-status').textContent = '❌ Erro: ' + json.error;
+                return;
             }
-            
-            function renderStats(stats) {
-                const tbody = document.querySelector('#stats-table tbody');
-                tbody.innerHTML = '';
-                stats.forEach(row => {
-                    const klass = row['VÁLIDOS'] >= row['META'] ? 'meta-ok' : 'meta-fail';
-                    tbody.innerHTML += `
-                        <tr class="${klass}">
-                            <td>${row['semana']}</td>
-                            <td>${row['ENDEREÇO']}</td>
-                            <td>${row['VÁLIDOS']}</td>
-                            <td>${row['META']}</td>
-                            <td>${row['% CUMPRIMENTO']} %</td>
-                            <td>${row['RESTANTES']}</td>
-                        </tr>
-                    `;
-                });
-            }
-            
-            function renderDetails(details) {
-                const thead = document.querySelector('#data-table thead');
-                const tbody = document.querySelector('#data-table tbody');
-                thead.innerHTML = ''; tbody.innerHTML = '';
-                if(!details.length) {
-                    tbody.innerHTML = '<tr><td>Sem dados</td></tr>';
-                    return;
-                }
-                const cols = Object.keys(details[0]);
-                thead.innerHTML = `<tr>${cols.map(c => `<th>${c.toUpperCase().replace(/_/g, ' ')}</th>`).join('')}</tr>`;
-                
-                tbody.innerHTML = details.map(row => {
-                    return `<tr>${cols.map(c => `<td>${row[c] !== null ? row[c] : ''}</td>`).join('')}</tr>`;
-                }).join('');
-            }
-            
-            function renderChart(details) {
-                const freq = {};
-                details.forEach(d => {
-                    const tipo = d.tipo_evento || 'OUTROS';
-                    freq[tipo] = (freq[tipo] || 0) + 1;
-                });
-                
-                const option = {
-                    backgroundColor: '#1e1e1e',
-                    title: { text: 'Ocorrências por Tipo de Evento', left: 'center', textStyle: { color: '#f39c12' } },
-                    tooltip: { trigger: 'item' },
-                    series: [{
-                        name: 'Ocorrências',
-                        type: 'pie',
-                        radius: '50%',
-                        data: Object.keys(freq).map(k => ({name: k, value: freq[k]})),
-                        emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' } }
-                    }]
-                };
-                myChart.setOption(option);
-            }
-            
-            btnBuscar.addEventListener('click', () => fetchData(false));
-            btnForcar.addEventListener('click', () => fetchData(true));
-            window.addEventListener('resize', () => myChart.resize());
-            
-            // Initial Check
-            fetchData(false);
+
+            document.getElementById('cache-status').textContent =
+                `✔ Fonte: ${json.cache_info.source} | Atualizado: ${json.cache_info.last_updated}`;
+
+            renderStats(json.stats);
+            renderDetails(json.details);
+            renderChart(json.details);
+        } catch (e) {
+            document.getElementById('cache-status').textContent = '❌ Falha de comunicação com o servidor.';
+        }
+    }
+
+    // ========================
+    // TABELA ESTATÍSTICAS
+    // ========================
+    function renderStats(stats) {
+        const tbody = document.querySelector('#stats-table tbody');
+        if (!stats.length) { tbody.innerHTML = '<tr><td colspan="6">Sem dados para exibir.</td></tr>'; return; }
+        tbody.innerHTML = stats.map(row => `
+            <tr class="${row['VÁLIDOS'] >= row['META'] ? 'meta-ok' : 'meta-fail'}">
+                <td>${row['semana']}</td>
+                <td>${row['ENDEREÇO']}</td>
+                <td>${row['VÁLIDOS']}</td>
+                <td>${row['META']}</td>
+                <td>${row['% CUMPRIMENTO']}%</td>
+                <td>${row['RESTANTES']}</td>
+            </tr>`).join('');
+    }
+
+    // ========================
+    // TABELA DETALHADA
+    // ========================
+    function renderDetails(details) {
+        const thead = document.querySelector('#data-table thead');
+        const tbody = document.querySelector('#data-table tbody');
+        thead.innerHTML = ''; tbody.innerHTML = '';
+        if (!details.length) { tbody.innerHTML = '<tr><td>Sem registros.</td></tr>'; return; }
+
+        const cols = Object.keys(details[0]);
+        thead.innerHTML = `<tr>${cols.map(c => `<th>${c.toUpperCase().replace(/_/g, ' ')}</th>`).join('')}</tr>`;
+        tbody.innerHTML = details.map(row =>
+            `<tr>${cols.map(c => `<td>${row[c] !== null && row[c] !== undefined ? row[c] : ''}</td>`).join('')}</tr>`
+        ).join('');
+    }
+
+    // ========================
+    // GRÁFICO ECHARTS
+    // ========================
+    function renderChart(details) {
+        const freq = {};
+        details.forEach(d => { const tipo = d.tipo_evento || 'OUTROS'; freq[tipo] = (freq[tipo] || 0) + 1; });
+        myChart.setOption({
+            backgroundColor: '#1e1e1e',
+            title: { text: 'Ocorrências por Tipo de Evento', left: 'center', textStyle: { color: '#f39c12' } },
+            tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+            legend: { bottom: 10, textStyle: { color: '#ccc' } },
+            series: [{
+                name: 'Ocorrências', type: 'pie', radius: ['35%', '60%'],
+                data: Object.keys(freq).map(k => ({ name: k, value: freq[k] })),
+                emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } },
+                label: { color: '#ccc' }
+            }]
         });
-    </script>
+    }
+
+    window.addEventListener('resize', () => myChart.resize());
+    fetchData(false); // Carga inicial
+});
+</script>
 </body>
 </html>
