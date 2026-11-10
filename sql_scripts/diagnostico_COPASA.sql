@@ -2,6 +2,7 @@ SELECT
     OCO.numero_ocorrencia AS bos,
     OCO.data_hora_fato,
     OCO.logradouro_codigo,
+    OCO.logradouro_nome,
     OCO.historico_ocorrencia,
     OCO.codigo_municipio,
     OCO.nome_municipio,
@@ -17,7 +18,12 @@ WHERE
     AND OCO.codigo_municipio = 316860 
     AND OCO.data_hora_fato >= '2025-10-01'
     AND OCO.data_hora_fato < days_add(last_day(now()), 1)
-    AND OCO.logradouro_codigo IN ('3361', '2601', '-498661', '-515062', '-497640', '-558382', '-570056', '-497579')
+    -- Codigo OU nome do logradouro: o BISP recodificou os logradouros em 22/10/2026,
+    -- o nome continua estavel e evita perder registros numa proxima recodificacao.
+    AND (
+        OCO.logradouro_codigo IN ('3361', '2601', '-498661', '-515062', '-497640', '-558382', '-570056', '-497579', '474640', '471568', 'TFL0221', 'TFL0293', 'TFL0997', 'TFL0282')
+        OR UPPER(COALESCE(OCO.logradouro_nome, '')) RLIKE '(PADRE VIRG[OU]LINO|MARCELO GUEDES|TFL ?0221|TFL ?0282|TFL ?0293|TFL ?0997)'
+    )
     AND LOWER(OCO.historico_ocorrencia) LIKE '%copasa%'
     AND (
         E.numero_cpf_cnpj IS NOT NULL

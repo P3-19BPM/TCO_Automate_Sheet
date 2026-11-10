@@ -427,13 +427,27 @@ def processar_dados_python(df_raw):
     def definir_local(cod):
         # Remove .0 caso venha como float (ex: 3361.0 -> 3361)
         cod = str(cod).replace('.0', '').strip()
-        if cod == '3361':
+        # BISP recodificou os logradouros em out/2026: mantemos códigos antigos e novos.
+        if cod in ['3361', '474640']:
             return 'AGÊNCIA DE ATENDIMENTO'
-        if cod == '2601':
+        if cod in ['2601', '471568']:
             return 'ALMOXARIFADO SÃO JOSÉ'
-        if cod in ['-498661', '-515062', '-497640', '-558382']:
+        if cod in ['-498661', '-515062', '-497640', '-558382', 'TFL0221', 'TFL0293', 'TFL0997']:
             return 'CEAM - BARRAGEM TODOS OS SANTOS'
-        if cod in ['-570056', '-497579']:
+        if cod in ['-570056', '-497579', 'TFL0282']:
+            return 'BARRAGEM TODOS OS SANTOS'
+        return 'OUTROS'
+
+    def definir_local_por_nome(nome):
+        # Fallback pelo nome do logradouro (estável entre recodificações do BISP).
+        n = re.sub(r'\s+', '', str(nome or '').upper())
+        if re.search(r'PADREVIRG[OU]LINO', n):
+            return 'AGÊNCIA DE ATENDIMENTO'
+        if 'MARCELOGUEDES' in n:
+            return 'ALMOXARIFADO SÃO JOSÉ'
+        if re.search(r'TFL(0221|0293|0997)', n):
+            return 'CEAM - BARRAGEM TODOS OS SANTOS'
+        if 'TFL0282' in n:
             return 'BARRAGEM TODOS OS SANTOS'
         return 'OUTROS'
 
@@ -442,11 +456,14 @@ def processar_dados_python(df_raw):
     if 'codigo_logradouro' in df_raw.columns:
         col_logradouro = 'codigo_logradouro'
 
-    # Aplica a definição de local
+    # Aplica a definição de local: código primeiro, nome do logradouro como fallback
     if col_logradouro in df_raw.columns:
         df_raw['local_fato_calc'] = df_raw[col_logradouro].apply(definir_local)
     else:
         df_raw['local_fato_calc'] = 'OUTROS'
+    if 'logradouro_nome' in df_raw.columns:
+        mask_outros = df_raw['local_fato_calc'] == 'OUTROS'
+        df_raw.loc[mask_outros, 'local_fato_calc'] = df_raw.loc[mask_outros, 'logradouro_nome'].apply(definir_local_por_nome)
 
     resultados = []
 
