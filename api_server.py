@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from werkzeug.utils import secure_filename
 from flask import Flask, jsonify, render_template, request, send_file
 from pypdf import PdfReader, PdfWriter
@@ -28,6 +28,10 @@ from google.oauth2.service_account import Credentials
 load_dotenv()
 DB_USER = os.getenv('DB_USERNAME')
 DB_PASSWORD = os.getenv('DB_PASSWORD')
+
+# BISP retorna datas em horário local (America/Sao_Paulo, UTC-3 fixo, sem
+# horário de verão desde 2019), sem tzinfo. Ver uso em get_dataframe_from_cache_or_bisp().
+TZ_BRASIL = timezone(timedelta(hours=-3))
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets',
           'https://www.googleapis.com/auth/drive']
@@ -200,6 +204,7 @@ def export_xlsx_validos():
     try:
         # Carrega o mesmo DF do painel
         df, _ = get_dataframe_from_cache_or_bisp()
+        df = aplicar_auditoria_manual(df)
 
         # Normaliza nome da coluna (por segurança)
         df.columns = [c.lower().replace(" ", "_") for c in df.columns]
@@ -596,8 +601,11 @@ def get_dataframe_from_cache_or_bisp():
     if last_bisp_update_df is None or last_bisp_update_df.empty:
         raise Exception("Falha ao obter data de atualização no BISP.")
 
+    # BUG histórico: rotular direto como UTC (sem converter do horário local)
+    # criava um desvio fixo de 3h que podia fazer o cache parecer "válido"
+    # mesmo com ocorrência mais nova já disponível no BISP.
     last_bisp_update = pd.to_datetime(
-        last_bisp_update_df.iloc[0, 0]).tz_localize('UTC')
+        last_bisp_update_df.iloc[0, 0]).tz_localize(TZ_BRASIL).tz_convert('UTC')
 
     # 2. Checa status do Cache Local
     last_cache_update = None
@@ -657,7 +665,11 @@ def get_dataframe_from_cache_or_bisp():
         df['registro_válido'] = df['registro_válido'].astype(
             str).str.lower().isin(['true', '1', 't'])
 
-    df = aplicar_auditoria_manual(df)
+    # NOTA: a auditoria manual local NÃO é aplicada aqui de propósito — quem
+    # consome este dataframe bruto (ex.: script de sincronização com o painel
+    # online) precisa do veredito 100% automático, sem overrides manuais por
+    # cima. Cada rota que exibe/exporta dados para o painel local Flask aplica
+    # `aplicar_auditoria_manual()` por conta própria, logo abaixo desta chamada.
 
     return df, cache_info
 
@@ -666,6 +678,7 @@ def get_dataframe_from_cache_or_bisp():
 def get_dados_diagnostico():
     try:
         df, cache_info = get_dataframe_from_cache_or_bisp()
+        df = aplicar_auditoria_manual(df)
         coluna_local = "local_fato"
         coluna_valido = "registro_válido"
         coluna_motivo = "motivos_caso_inválido"
@@ -733,10 +746,19 @@ def get_dados_diagnostico():
                 by=sort_by, ascending=(sort_order == 'asc'), na_position='last')
 
         # --------- AGORA sim: calcula as estatísticas usando o df_filtrado ---------
+        # Locais que devem aparecer na tabela mesmo com 0 registros no período
+        # (senão um local sem nenhuma visita ainda no mês some da tabela de metas).
+        if filtro_cia and filtro_cia in locais_cia:
+            locais_alvo = locais_cia[filtro_cia]
+        elif filtro_local_val:
+            locais_alvo = [filtro_local_val] if filtro_local_val in metas else []
+        else:
+            locais_alvo = list(metas.keys())
+
         stats_df = df_filtrado.groupby(coluna_local)[coluna_valido].agg(
             VÁLIDOS=lambda x: x.sum(),
             INVÁLIDOS=lambda x: (~x).sum()
-        ).reset_index()
+        ).reindex(locais_alvo, fill_value=0).reset_index()
         stats_df['META'] = stats_df[coluna_local].map(metas)
         stats_df['% CUMPRIMENTO'] = (
             stats_df['VÁLIDOS'] / stats_df['META'] * 100).fillna(0).round(2)
